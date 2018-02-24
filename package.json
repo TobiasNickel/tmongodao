@@ -1,0 +1,11 @@
+{
+  "name": "tmongodao",
+  "description": "dao for mongodb",
+  "version": "0.0.0",
+  "license": "MIT",
+  "dependencies": {
+    "monk": "^6.0.5",
+    "superstruct": "^0.5.0",
+    "tpicker": "0.0.1"
+  }
+}
