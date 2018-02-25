@@ -30,7 +30,7 @@ function prepareDAO(dao, db) {
     dao.collection = collection;
     dao.schema._id = 'string?';
     dao.db = db;
-    var verifySchema = superstruct.struct(dao.schema);
+    var verifySchema = superstruct.struct(dao.schema, dao.defaults || {});
     var picker = tpicker.createPicker(dao.schema);
     dao.picker = picker;
     dao.verifySchema = verifySchema;
@@ -38,8 +38,57 @@ function prepareDAO(dao, db) {
         verifySchema(item);
         return collection.insert(picker(item));
     };
+    //todo:dao.remove
+    //todo:dao.find
+    //todo:dao.where
+    //todo:dao.oneWhere
+    //todo:dao.search
+    //todo:dao.dropTable
+    //todo:indexes
     addSchemaMethods(dao, dao.schema);
+    Object.keys(dao.relations || {}).forEach(relationName => {
+        var relationConfig = normalizeRelationConfig(dao.relations[relationName], relationName, collectionName)
+        var addName = relationName[0].toUpperCase() + relationName.slice(1).toLowerCase();
+        dao['fetch' + addName] = function(entities) {
+            entities = toArray(entities);
+            var values = entities.map(value => value[relationConfig.localKey]);
+            var findPromise;
+            if (db.daos[relationConfig.collection]) {
+                var collectionAddName = relationConfig.foreignKey[0].toUpperCase() + relationConfig.foreignKey.slice(1).toLowerCase();
+                console.log(collectionAddName)
+                findPromise = db.daos[relationConfig.collection]['getBy' + collectionAddName](values)
+            } else {
+                findPromise = db.db.get(relationConfig.collection).find({ $in: values })
+            }
+            return findPromise.then(result => {
+                var resultMap = groupBy(result, relationConfig.foreignKey);
+                var entitiesMap = groupBy(entities, relationConfig.localKey);
+                result.forEach(r => {
+                    entitiesMap[r[relationConfig.foreignKey]].forEach(entitiy => {
+                        if (relationConfig.many) {
+                            if (!entitiy[relationName]) entitiy[relationName] = [];
+                            entitiy[relationName].push(r);
+                        } else {
+                            entitiy[relationName] = r;
+                        }
+                    });
+                });
+                return result;
+            })
+
+        }
+    });
     return dao;
+}
+
+function normalizeRelationConfig(config, relationName, localCollectionName) {
+    if (typeof(config) != 'object') config = {};
+    return {
+        collection: config.collection || relationName,
+        localKey: config.localKey || '_id',
+        foreignKey: config.foreignKey || localCollectionName,
+        multiple: config.multiple != undefined ? config.multiple : true
+    };
 }
 
 function addSchemaMethods(dao, schema, prefix = '') {
@@ -85,6 +134,15 @@ function addschemaPropertyMethods(dao, addName, propName) {
             [propName]: { $in: toArray(value) }
         });
     };
+}
+
+function groupBy(collection, propname) {
+    var result = {};
+    collection.forEach(item => {
+        if (!result[item[propname]]) result[item[propname]] = [];
+        result[item[propname]].push(item);
+    })
+    return result;
 }
 
 function toArray(item) {

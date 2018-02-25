@@ -8,6 +8,6 @@
         "monk": "^6.0.5",
         "superstruct": "^0.5.0",
         "tcacher": "0.0.3",
-        "tpicker": "0.0.1"
+        "tpicker": "0.0.2"
     }
 }

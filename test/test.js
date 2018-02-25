@@ -10,21 +10,51 @@ var userDao = db.prepareDao({
         name: 'string',
         email: 'string',
         age: 'number?'
+    },
+    defaults: {
+
+    },
+    relations: {
+        // to load pictures from a pictures dao or collection
+        pictures: { collection: 'pictures', localKey: '_id', foreignKey: "uploader", many: true }
     }
 })
+var pictureDao = db.prepareDao({
+    collectionName: 'pictures',
+    schema: {
+        name: 'string?',
+        url: 'string',
+        uploader: 'string?',
+        tags: ['string?']
+    },
+    defaults: {
 
-userDao.insert({
-    name: 'tobias',
-    email: 'tobias@tnickel.de',
-}).then(() => {
-    return userDao.getOneByName('tobias');
-}).then(tobias => {
+    },
+    relations: {
+        // to load pictures from a pictures dao or collection
+        uploader: { collection: 'user', localKey: 'uploader', foreignKey: "_id", many: true }
+    }
+});
+
+(async function() {
+    await userDao.insert({
+        name: 'tobias',
+        email: 'tobias@tnickel.de',
+    });
+    var tobias = await userDao.getOneByName('tobias');
+    await pictureDao.insert({
+        name: 'profilePicture',
+        url: 'http://localhost:80/asdfsf.jpg',
+        uploader: tobias._id,
+        tags: ['tobias']
+    })
+    await userDao.fetchPictures(tobias);
     console.log('tobias:', tobias)
-    return userDao.removeByName('tobias');
-}).then(_ => {
+
+    await userDao.removeByName('tobias');
     console.log('done');
     process.exit();
-}).catch(err => {
+})().catch(err => {
     console.log(err);
     process.exit();
 });
