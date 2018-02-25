@@ -35,6 +35,8 @@ function prepareDAO(dao, db) {
     dao.picker = picker;
     dao.verifySchema = verifySchema;
 
+    proxyMonkCollectionMethods(dao);
+
     dao.insert = function(item) {
         if (Array.isArray(item)) return Promise.all(item.map(dao.insert));
         const storeItem = picker(item)
@@ -43,6 +45,7 @@ function prepareDAO(dao, db) {
     };
     dao.save = function(item) {
         if (Array.isArray(item)) return Promise.all(item.map(dao.save));
+        if (!item._id) return dao.insert(item);
         const storeItem = picker(item)
         verifySchema(storeItem);
         return collection.update({ _id: item._id }, storeItem);
@@ -52,17 +55,35 @@ function prepareDAO(dao, db) {
         const ids = items.map(item => item._id);
         return collection.remove({ _id: { $in: ids } });
     };
+    dao.find = function(...args) {
+        return collection.find(...args);
+    };
+    dao.findOne = function(...args) {
+        return collection.findOne(...args);
+    };
 
-    //todo:dao.remove
-    //todo:dao.find
-    //todo:dao.where
-    //todo:dao.oneWhere
-    //todo:dao.search
-    //todo:dao.dropTable
-    //todo:indexes
+    //todo:dao.search for rest apis search
+
     addSchemaMethods(dao, dao.schema);
+    addFetchSchemaMethods(dao);
+    return dao;
+}
+
+function proxyMonkCollectionMethods(dao) {
+    const collection = dao.collection;
+    Object.keys(collection)
+        .filter(propname => typeof(collection[propname]) == 'function')
+        .forEach(prop => {
+            dao[prop] = function(...args) {
+                return collection[prop](...args);
+            };
+        });
+}
+
+function addFetchSchemaMethods(dao) {
+    var db = dao.db;
     Object.keys(dao.relations || {}).forEach(relationName => {
-        var relationConfig = normalizeRelationConfig(dao.relations[relationName], relationName, collectionName)
+        var relationConfig = normalizeRelationConfig(dao.relations[relationName], relationName, dao.collectionName);
         var addName = relationName[0].toUpperCase() + relationName.slice(1).toLowerCase();
         dao['fetch' + addName] = function(entities) {
             entities = toArray(entities);
@@ -70,10 +91,10 @@ function prepareDAO(dao, db) {
             var findPromise;
             if (db.daos[relationConfig.collection]) {
                 var collectionAddName = relationConfig.foreignKey[0].toUpperCase() + relationConfig.foreignKey.slice(1).toLowerCase();
-                console.log(collectionAddName)
-                findPromise = db.daos[relationConfig.collection]['getBy' + collectionAddName](values)
+                console.log(collectionAddName);
+                findPromise = db.daos[relationConfig.collection]['getBy' + collectionAddName](values);
             } else {
-                findPromise = db.db.get(relationConfig.collection).find({ $in: values })
+                findPromise = db.db.get(relationConfig.collection).find({ $in: values });
             }
             return findPromise.then(result => {
                 var resultMap = groupBy(result, relationConfig.foreignKey);
@@ -81,7 +102,8 @@ function prepareDAO(dao, db) {
                 result.forEach(r => {
                     entitiesMap[r[relationConfig.foreignKey]].forEach(entitiy => {
                         if (relationConfig.many) {
-                            if (!entitiy[relationName]) entitiy[relationName] = [];
+                            if (!entitiy[relationName])
+                                entitiy[relationName] = [];
                             entitiy[relationName].push(r);
                         } else {
                             entitiy[relationName] = r;
@@ -89,11 +111,9 @@ function prepareDAO(dao, db) {
                     });
                 });
                 return result;
-            })
-
-        }
+            });
+        };
     });
-    return dao;
 }
 
 function normalizeRelationConfig(config, relationName, localCollectionName) {

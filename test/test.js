@@ -18,7 +18,8 @@ var userDao = db.prepareDao({
         // to load pictures from a pictures dao or collection
         pictures: { collection: 'pictures', localKey: '_id', foreignKey: "uploader", many: true }
     }
-})
+});
+console.log(Object.keys(userDao))
 var pictureDao = db.prepareDao({
     collectionName: 'pictures',
     schema: {
