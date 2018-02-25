@@ -34,10 +34,25 @@ function prepareDAO(dao, db) {
     var picker = tpicker.createPicker(dao.schema);
     dao.picker = picker;
     dao.verifySchema = verifySchema;
+
     dao.insert = function(item) {
-        verifySchema(item);
-        return collection.insert(picker(item));
+        if (Array.isArray(item)) return Promise.all(item.map(dao.insert));
+        const storeItem = picker(item)
+        verifySchema(storeItem);
+        return collection.insert(storeItem);
     };
+    dao.save = function(item) {
+        if (Array.isArray(item)) return Promise.all(item.map(dao.save));
+        const storeItem = picker(item)
+        verifySchema(storeItem);
+        return collection.update({ _id: item._id }, storeItem);
+    };
+    dao.remove = function(items) {
+        if (!Array.isArray(items)) items = [items];
+        const ids = items.map(item => item._id);
+        return collection.remove({ _id: { $in: ids } });
+    };
+
     //todo:dao.remove
     //todo:dao.find
     //todo:dao.where

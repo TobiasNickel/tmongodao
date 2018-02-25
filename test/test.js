@@ -42,6 +42,8 @@ var pictureDao = db.prepareDao({
         email: 'tobias@tnickel.de',
     });
     var tobias = await userDao.getOneByName('tobias');
+    tobias.something = 'not interesting';
+    await userDao.save(tobias);
     await pictureDao.insert({
         name: 'profilePicture',
         url: 'http://localhost:80/asdfsf.jpg',
@@ -51,7 +53,8 @@ var pictureDao = db.prepareDao({
     await userDao.fetchPictures(tobias);
     console.log('tobias:', tobias)
 
-    await userDao.removeByName('tobias');
+    await userDao.removeBy_id(tobias._id);
+    await pictureDao.removeByUploader(tobias._id);
     console.log('done');
     process.exit();
 })().catch(err => {
