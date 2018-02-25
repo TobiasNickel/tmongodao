@@ -9,6 +9,7 @@ var userDao = db.prepareDao({
     schema: {
         name: 'string',
         email: 'string',
+        age: 'number?'
     }
 })
 
@@ -18,7 +19,9 @@ userDao.insert({
 }).then(() => {
     return userDao.getOneByName('tobias');
 }).then(tobias => {
-    console.log(tobias)
+    console.log('tobias:', tobias)
+    return userDao.removeByName('tobias');
+}).then(_ => {
     console.log('done');
     process.exit();
 }).catch(err => {
