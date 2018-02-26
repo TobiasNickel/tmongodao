@@ -10,7 +10,9 @@
  - getMethods betch queries
  - save method uses mongodb's update as mongodb's update is depricated
  - schema is applied and objects are cleaned before insert or update
+ - get and find methods have pathing
+
 
 # todo:
- - paging
  - search
+ - validate updates

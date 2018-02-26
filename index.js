@@ -3,6 +3,7 @@ const superstruct = require("superstruct");
 const tpicker = require("tpicker");
 const tcacher = require('tcacher');
 
+
 module.exports = function db(config) {
     const db = {
         daos: config.registry || {},
@@ -35,38 +36,58 @@ function prepareDAO(dao, db) {
     dao.picker = picker;
     dao.verifySchema = verifySchema;
 
+    //todo:dao.search for rest apis search
     proxyMonkCollectionMethods(dao);
+    addGeneralDaoMethods(dao);
+    addSchemaMethods(dao, dao.schema);
+    addFetchSchemaMethods(dao);
+    return dao;
+}
 
+function addGeneralDaoMethods(dao) {
+    const picker = dao.picker;
+    const verifySchema = dao.verifySchema;
+    const collection = dao.collection;
     dao.insert = function(item) {
-        if (Array.isArray(item)) return Promise.all(item.map(dao.insert));
-        const storeItem = picker(item)
+        if (Array.isArray(item))
+            return Promise.all(item.map(dao.insert));
+        const storeItem = picker(item);
         verifySchema(storeItem);
         return collection.insert(storeItem);
     };
     dao.save = function(item) {
-        if (Array.isArray(item)) return Promise.all(item.map(dao.save));
-        if (!item._id) return dao.insert(item);
-        const storeItem = picker(item)
+        if (Array.isArray(item))
+            return Promise.all(item.map(dao.save));
+        if (!item._id)
+            return dao.insert(item);
+        const storeItem = picker(item);
         verifySchema(storeItem);
         return collection.update({ _id: item._id }, storeItem);
     };
     dao.remove = function(items) {
-        if (!Array.isArray(items)) items = [items];
+        if (!Array.isArray(items))
+            items = [items];
         const ids = items.map(item => item._id);
         return collection.remove({ _id: { $in: ids } });
     };
     dao.find = function(...args) {
-        return collection.find(...args);
+        if (typeof(args[args.length - 1]) === 'number') {
+            var pagesize = db.defaultPageSize;
+            if (typeof(args[args.length - 2]) === 'number') {
+                pagesize = args.pop();
+            }
+            var page = args.pop();
+            var finder = collection.find(...args);
+            finder = finder.skip(pagesize * page);
+            finder = finder.limit(pagesize);
+            return finder;
+        } else {
+            return collection.find(...args);
+        }
     };
     dao.findOne = function(...args) {
         return collection.findOne(...args);
     };
-
-    //todo:dao.search for rest apis search
-
-    addSchemaMethods(dao, dao.schema);
-    addFetchSchemaMethods(dao);
-    return dao;
 }
 
 function proxyMonkCollectionMethods(dao) {
@@ -156,10 +177,7 @@ function addschemaPropertyMethods(dao, addName, propName) {
             finder = finder.skip(pagesize * page);
             finder = finder.limit(pagesize);
         }
-        return finder.then(a => {
-            //console.log(a)
-            return a.map(a => a);
-        });
+        return finder;
     }, { resultProp: propName });
     dao['getOneBy' + addName] = function(value, page, pageSize) {
         return dao['getBy' + addName](value).then(r => r[0]);
@@ -184,3 +202,25 @@ function toArray(item) {
     if (Array.isArray(item)) return item;
     return [item]
 }
+
+//todo: find solution fo validate updates with $set, $inc 
+//and other updateOperators: https://docs.mongodb.com/manual/reference/operator/update/#id1
+
+// function schemaAllOptional(schema) {
+//     var newSchema = {};
+//     Object.keys(schema).forEach(prop => {
+//         if (typeof(schema[prop]) == 'object') {
+//             if (Array.isArray(schema[prop])) {
+//                 if (typeof(schema[prop][0] == 'object')) {
+//                     newSchema[prop] = superstruct.struct.optional([schemaAllOptional(schema[prop][0])]);
+//                 } else {
+//                     newSchema[prop] = superstruct.struct.optional([schema[prop]]);
+//                 }
+//             } else {
+//                 newSchema[prop] = superstruct.struct.optional(schemaAllOptional(schema[prop]));
+//             }
+//         } else {
+//             newSchema[prop] = superstruct.struct.optional(schema[prop]);
+//         }
+//     });
+// }
