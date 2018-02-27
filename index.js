@@ -85,9 +85,83 @@ function addGeneralDaoMethods(dao) {
             return collection.find(...args);
         }
     };
+    var schemaFields = searchFieldsFromSchema(schema);
+    dao.search = function(word, filter, order, page, pagesize) {
+        var query = {}
+        if (word) {
+            query.$text = {
+                $search: word,
+                $caseSensitive: false,
+                $diacriticSensitive: false
+            };
+        }
+        if (filter) {
+            Object.keys(filter).forEach(propName => {
+                if (fieldNames.indexOf(propName) === -1) {
+                    return;
+                }
+                var prop = filter[propName];
+                if (prop[0] == '<') {
+                    query[propName] = { $lt: prop.substr(1) };
+                } else if (prop[0] == '>') {
+                    query[propName] = { $gt: prop.substr(1) };
+                } else if (prop[0] == '!') {
+                    query[propName] = { $not: prop.substr(1) };
+                } else if (value.indexOf('<>') > 0) {
+                    var values = value.split('<>');
+                    values.sort(function(a, b) {
+                        if (a < b) {
+                            return -1;
+                        } else {
+                            return 1;
+                        }
+                    });
+                    query[propName] = {
+                        $and: {
+                            $lt: values[0],
+                            $gt: values[1],
+                        }
+                    };
+                } else {
+                    query[propName] = { $in: filter[propName] };
+                }
+            });
+        }
+
+        var finder = collection.find(query);
+        if (order) {
+            finder = finder.sort({ order: 1 });
+        }
+        if (page !== undefined) {
+            if (!pagesize) pagesize = dao.db.pageSize;
+            finder = finder.skip(pagesize * page)
+            finder = finder.limit(pagesize)
+        }
+        return finder;
+    };
+
     dao.findOne = function(...args) {
         return collection.findOne(...args);
     };
+}
+
+function searchFieldsFromSchema(schema, prefix = '', list = []) {
+    Object.keys(schema).forEach(propName => {
+        if (typeof(schema[propName]) == 'object') {
+            if (Array.isArray(schema[propName])) {
+                if (typeof(schema[propName][0]) == 'object') {
+                    searchFieldsFromSchema(schema[propName], prefix + propName + '.', list);
+                } else {
+                    list.push(prefx + propName)
+                }
+            } else {
+                searchFieldsFromSchema(schema[propName], prefix + propName + '.', list)
+            }
+        } else {
+            list.push(prefx + propName)
+        }
+    });
+    return list;
 }
 
 function proxyMonkCollectionMethods(dao) {
@@ -223,4 +297,4 @@ function toArray(item) {
 //             newSchema[prop] = superstruct.struct.optional(schema[prop]);
 //         }
 //     });
-// }
+// };
