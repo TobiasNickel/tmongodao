@@ -1,4 +1,10 @@
-var tmongodao = require('../index');
+const tmongodao = require('../index');
+const tfilemonk = require('tfilemonk');
+const fs = require('fs');
+
+const filename = 'testdata.js';
+try{fs.unlinkSync(filename);}catch(err){}
+tfilemonk({filename});
 
 var db = tmongodao({
     uri: 'mongodb://localhost:27017/tmysqldaotest'

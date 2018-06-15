@@ -85,7 +85,7 @@ function addGeneralDaoMethods(dao) {
             return collection.find(...args);
         }
     };
-    var schemaFields = searchFieldsFromSchema(schema);
+    var schemaFields = searchFieldsFromSchema(dao.schema);
     dao.search = function(word, filter, order, page, pagesize) {
         var query = {}
         if (word) {
@@ -143,6 +143,11 @@ function addGeneralDaoMethods(dao) {
     dao.findOne = function(...args) {
         return collection.findOne(...args);
     };
+
+    dao.update = function (query, updateSet, options) {
+        // TODO: verify update set
+        collection.update(query, updateSet,options)
+    }
 }
 
 function searchFieldsFromSchema(schema, prefix = '', list = []) {
@@ -152,13 +157,13 @@ function searchFieldsFromSchema(schema, prefix = '', list = []) {
                 if (typeof(schema[propName][0]) == 'object') {
                     searchFieldsFromSchema(schema[propName], prefix + propName + '.', list);
                 } else {
-                    list.push(prefx + propName)
+                    list.push(prefix + propName)
                 }
             } else {
                 searchFieldsFromSchema(schema[propName], prefix + propName + '.', list)
             }
         } else {
-            list.push(prefx + propName)
+            list.push(prefix + propName)
         }
     });
     return list;
