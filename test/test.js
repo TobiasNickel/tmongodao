@@ -22,7 +22,7 @@ var userDao = db.prepareDao({
     },
     relations: {
         // to load pictures from a pictures dao or collection
-        pictures: { collection: 'pictures', localKey: '_id', foreignKey: "uploader", many: true }
+        pictures: { collection: 'pictures', localKey: '_id', foreignKey: "uploader", multiple: true }
     }
 });
 console.log(Object.keys(userDao))
@@ -39,7 +39,7 @@ var pictureDao = db.prepareDao({
     },
     relations: {
         // to load pictures from a pictures dao or collection
-        uploader: { collection: 'user', localKey: 'uploader', foreignKey: "_id", many: true }
+        uploader: { collection: 'user', localKey: 'uploader', foreignKey: "_id", multiple: true }
     }
 });
 

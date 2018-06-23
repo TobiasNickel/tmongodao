@@ -1,7 +1,7 @@
 {
     "name": "tmongodao",
     "description": "dao for mongodb",
-    "version": "0.0.7",
+    "version": "0.0.10",
     "license": "MIT",
     "main": "index.js",
     "dependencies": {

@@ -16,3 +16,5 @@
 # todo:
  - search, testing
  - validate updates
+ - update and save events
+ - update log based on the events
