@@ -1,16 +1,26 @@
 {
     "name": "tmongodao",
     "description": "dao for mongodb",
-    "version": "0.0.10",
+    "version": "0.0.14",
     "license": "MIT",
     "main": "index.js",
+    "scripts": {
+        "test": "node test/test.js"
+    },
+    "repository": {
+        "url": "https://github.com/tobiasnickel/tmongodao",
+        "type": "git"
+    },
+    "author": {
+        "name": "Tobias Nickel"
+    },
     "dependencies": {
-        "monk": "^6.0.5",
-        "superstruct": "^0.5.0",
-        "tcacher": "0.0.3",
+        "monk": "^7.1.1",
+        "superstruct": "^0.8.2",
+        "tcacher": "0.0.4",
         "tpicker": "0.0.2"
     },
     "devDependencies": {
-        "tfilemonk": "0.0.2"
+        "tfilemonk": "0.0.5"
     }
 }

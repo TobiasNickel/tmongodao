@@ -201,6 +201,8 @@ function proxyMonkCollectionMethods(dao) {
         .forEach(prop => { dao[prop] = (...args) => collection[prop](...args) } );
 }
 
+const flatten = data => [].concat.apply([], data);
+
 function addFetchSchemaMethods(dao) {
     const db = dao.db;
     Object.keys(dao.relations || {}).forEach(relationName => {
@@ -208,7 +210,7 @@ function addFetchSchemaMethods(dao) {
         const addName = relationName[0].toUpperCase() + relationName.slice(1).toLowerCase();
         dao['fetch' + addName] = function(entities) {
             entities = toArray(entities);
-            var values = entities.map(value => value[relationConfig.localKey]);
+            const values = flatten(entities.map(value => value[relationConfig.localKey]));
             var findPromise;
             if (db.daos[relationConfig.collection]) {
                 var collectionAddName = relationConfig.foreignKey[0].toUpperCase() + relationConfig.foreignKey.slice(1).toLowerCase();

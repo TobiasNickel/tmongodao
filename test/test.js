@@ -3,7 +3,7 @@ const tfilemonk = require('tfilemonk');
 const fs = require('fs');
 
 const filename = 'testdata.js';
-try{fs.unlinkSync(filename);}catch(err){}
+//try{fs.unlinkSync(filename);}catch(err){}
 tfilemonk({filename});
 
 var db = tmongodao({
@@ -25,7 +25,7 @@ var userDao = db.prepareDao({
         pictures: { collection: 'pictures', localKey: '_id', foreignKey: "uploader", multiple: true }
     }
 });
-console.log(Object.keys(userDao))
+// console.log(Object.keys(userDao))
 var pictureDao = db.prepareDao({
     collectionName: 'pictures',
     schema: {
