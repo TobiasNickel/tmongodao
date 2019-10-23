@@ -4,20 +4,20 @@ const tpicker = require("tpicker");
 const tcacher = require('tcacher');
 
 
-module.exports = function db(config) {
-    const db = {
-        daos: config.registry || {},
+module.exports = function mondoDao(config) {
+    const mongoDao = {
+        registry: config.registry || {},
         defaultPageSize: config.pageSize || 20,
         db: config.db || monk(config.uri),
         prepareDao: function(dao) {
-            db.daos[dao.collectionName] = dao;
-            return prepareDAO(dao, db);
+            mongoDao.registry[dao.collectionName] = dao;
+            return prepareDAO(dao, mongoDao);
         }
     };
-    return db;
+    return mongoDao;
 }
 
-function prepareDAO(dao, db) {
+function prepareDAO(dao, mongoDao) {
     if (dao.collection)
         throw new Error('dao already has collection');
     if (dao.picker)
@@ -26,14 +26,12 @@ function prepareDAO(dao, db) {
         throw new Error('dao already has verifySchema');
     if (dao.db)
         throw new Error('dao already has db');
-    var collectionName = dao.collectionName;
-    var collection = db.db.get(collectionName);
     
-    dao.collection = collection;
+    dao.collection = mongoDao.db.get(dao.collectionName);;
     dao.schema._id = 'string?';
-    dao.db = db;
-    var verifySchema = superstruct.struct(dao.schema, dao.defaults || {});
-    var picker = tpicker.createPicker(dao.schema);
+    dao.db = mongoDao;
+    const verifySchema = superstruct.struct(dao.schema, dao.defaults || {});
+    const picker = tpicker.createPicker(dao.schema);
     dao.picker = picker;
     dao.verifySchema = verifySchema;
     dao.map = dao.map || (_=>_);
@@ -42,7 +40,7 @@ function prepareDAO(dao, db) {
         return p.then(function(items) {
             if (typeof items !== 'object') return items;
             if (Array.isArray(items)) {
-                var res = items.map(dao.map);
+                const res = items.map(dao.map);
                 res.resultCount = items.resultCount;
                 res.pageCount = items.pageCount;
                 return res;
@@ -66,17 +64,20 @@ function addGeneralDaoMethods(dao) {
     const collection = dao.collection;
     const map = dao.map;
     dao.insert = function(item) {
-        if (Array.isArray(item))
+        if (Array.isArray(item)) {
             return Promise.all(item.map(dao.insert));
+        }
         const storeItem = picker(item);
         verifySchema(storeItem);
         return collection.insert(storeItem);
     };
     dao.save = function(item) {
-        if (Array.isArray(item))
+        if (Array.isArray(item)){
             return Promise.all(item.map(dao.save));
-        if (!item._id)
+        }
+        if (!item._id) {
             return dao.insert(item);
+        }
         const storeItem = picker(item);
         verifySchema(storeItem);
         return collection.update({ _id: item._id }, storeItem);
@@ -93,7 +94,7 @@ function addGeneralDaoMethods(dao) {
             if (typeof(args[args.length - 2]) === 'number') {
                 pagesize = args.pop();
             }
-            var page = args.pop();
+            const page = args.pop();
             var finder = collection.find(...args);
             if (!finder.skip) {
                 // mongo-mock does not have this method
@@ -107,9 +108,9 @@ function addGeneralDaoMethods(dao) {
         }
     })(...args).then(items=>Promise.all(items.map(map)));
 
-    var schemaFields = searchFieldsFromSchema(dao.schema);
+    const schemaFields = searchFieldsFromSchema(dao.schema);
     dao.search =  (...args)=> (function(word, filter, order, page, pagesize) {
-        var query = {}
+        var query = {};
         if (word) {
             query.$text = {
                 $search: word,
@@ -156,10 +157,10 @@ function addGeneralDaoMethods(dao) {
         if (page !== undefined) {
             if (!pagesize) pagesize = dao.db.pageSize;
             if (!finder.skip) {
-                finder = finder.then(items => items.slice(page*pagesize, (page*pagesize)+pagesize))
+                finder = finder.then(items => items.slice(page*pagesize, (page*pagesize)+pagesize));
             } else {
-                finder = finder.skip(pagesize * page)
-                finder = finder.limit(pagesize)
+                finder = finder.skip(pagesize * page);
+                finder = finder.limit(pagesize);
             }
         }
         return finder;
@@ -171,24 +172,24 @@ function addGeneralDaoMethods(dao) {
 
     dao.update = function (query, updateSet, options) {
         // TODO: verify update set
-        collection.update(query, updateSet, options)
+        collection.update(query, updateSet, options);
     }
 }
 
 function searchFieldsFromSchema(schema, prefix = '', list = []) {
-    Object.keys(schema).forEach(propName => {
-        if (typeof(schema[propName]) == 'object') {
-            if (Array.isArray(schema[propName])) {
-                if (typeof(schema[propName][0]) == 'object') {
-                    searchFieldsFromSchema(schema[propName], prefix + propName + '.', list);
+    Object.keys(schema).forEach(key => {
+        if (typeof(schema[key]) == 'object') {
+            if (Array.isArray(schema[key])) {
+                if (typeof(schema[key][0]) == 'object') {
+                    searchFieldsFromSchema(schema[key][0], prefix + key + '.', list);
                 } else {
-                    list.push(prefix + propName)
+                    list.push(prefix + key);
                 }
             } else {
-                searchFieldsFromSchema(schema[propName], prefix + propName + '.', list)
+                searchFieldsFromSchema(schema[key], prefix + key + '.', list);
             }
         } else {
-            list.push(prefix + propName)
+            list.push(prefix + key);
         }
     });
     return list;
@@ -197,7 +198,7 @@ function searchFieldsFromSchema(schema, prefix = '', list = []) {
 function proxyMonkCollectionMethods(dao) {
     const collection = dao.collection;
     Object.keys(collection)
-        .filter(propname => typeof(collection[propname]) == 'function')
+        .filter(key => typeof(collection[key]) == 'function')
         .forEach(prop => { dao[prop] = (...args) => collection[prop](...args) } );
 }
 
@@ -208,26 +209,26 @@ function addFetchSchemaMethods(dao) {
     Object.keys(dao.relations || {}).forEach(relationName => {
         const relationConfig = normalizeRelationConfig(dao.relations[relationName], relationName, dao.collectionName);
         const addName = relationName[0].toUpperCase() + relationName.slice(1).toLowerCase();
+        const collectionAddName = relationConfig.foreignKey[0].toUpperCase() + relationConfig.foreignKey.slice(1).toLowerCase();
         dao['fetch' + addName] = function(entities) {
             entities = toArray(entities);
             const values = flatten(entities.map(value => value[relationConfig.localKey]));
-            var findPromise;
-            if (db.daos[relationConfig.collection]) {
-                var collectionAddName = relationConfig.foreignKey[0].toUpperCase() + relationConfig.foreignKey.slice(1).toLowerCase();
-                findPromise = db.daos[relationConfig.collection]['getBy' + collectionAddName](values.map(v=>v.toString()));
+            let findPromise;
+            if (db.registry[relationConfig.collection]) {
+                findPromise = db.registry[relationConfig.collection]['getBy' + collectionAddName](values.map(v=>v.toString()));
             } else {
                 findPromise = db.db.get(relationConfig.collection).find({ $in: values });
             }
             return findPromise.then(result => {
-                var entitiesMap = groupBy(entities, relationConfig.localKey);
+                const entitiesMap = groupBy(entities, relationConfig.localKey);
                 result.forEach(r => {
-                    entitiesMap[r[relationConfig.foreignKey]].forEach(entitiy => {
+                    entitiesMap[r[relationConfig.foreignKey]].forEach(entry => {
                         if (relationConfig.multiple) {
-                            if (!entitiy[relationName])
-                                entitiy[relationName] = [];
-                            entitiy[relationName].push(r);
+                            if (!entry[relationName])
+                                entry[relationName] = [];
+                            entry[relationName].push(r);
                         } else {
-                            entitiy[relationName] = r;
+                            entry[relationName] = r;
                         }
                     });
                 });
@@ -249,24 +250,24 @@ function normalizeRelationConfig(config, relationName, localCollectionName) {
 
 function addSchemaMethods(dao, schema, prefix = '') {
     Object.keys(schema).forEach(propName => {
-        var addName = prefix + propName[0].toUpperCase() + propName.slice(1).toLowerCase();
+        const addName = prefix + propName[0].toUpperCase() + propName.slice(1).toLowerCase();
         if (typeof(schema[propName]) === 'object') {
             if (Array.isArray(schema[propName])) {
                 if (typeof(schema[propName][0]) == 'object') {
                     addSchemaMethods(dao, schema[propName], addName);
                 } else {
-                    addschemaPropertyMethods(dao, addName, propName);
+                    addSchemaPropertyMethods(dao, addName, propName);
                 }
             } else {
                 addSchemaMethods(dao, schema[propName], addName);
             }
         } else {
-            addschemaPropertyMethods(dao, addName, propName);
+            addSchemaPropertyMethods(dao, addName, propName);
         }
     });
 }
 
-function addschemaPropertyMethods(dao, addName, propName) {
+function addSchemaPropertyMethods(dao, addName, propName) {
     dao['getBy' + addName] = tcacher.toCachingFunction((value, page, pageSize) => {
         var finder = dao.collection.find({
             [propName]: { $in: toArray(value) }
@@ -279,22 +280,22 @@ function addschemaPropertyMethods(dao, addName, propName) {
         return finder.then(items=>Promise.all(items.map(dao.map)));
     }, { resultProp: propName });
     
-    dao['getOneBy' + addName] = (value, page, pageSize) =>
+    dao['getOneBy' + addName] = (value) =>
         dao['getBy' + addName](value).then(r => r[0]);
     
-    dao['removeBy' + addName] = (value, connection) =>
+    dao['removeBy' + addName] = (value) =>
         dao.collection.remove({
             [propName]: { $in: toArray(value) }
         });
     
 }
 
-function groupBy(collection, propname) {
-    var result = {};
+function groupBy(collection, propName) {
+    const result = {};
     collection.forEach(item => {
-        if (!result[item[propname]]) result[item[propname]] = [];
-        result[item[propname]].push(item);
-    })
+        if (!result[item[propName]]) result[item[propName]] = [];
+        result[item[propName]].push(item);
+    });
     return result;
 }
 
