@@ -5,7 +5,8 @@
     "license": "MIT",
     "main": "index.js",
     "scripts": {
-        "test": "node test/test.js"
+        "test_old": "node test/test.js",
+        "test": "mocha"
     },
     "repository": {
         "url": "https://github.com/tobiasnickel/tmongodao",
@@ -21,6 +22,8 @@
         "tpicker": "0.0.2"
     },
     "devDependencies": {
+        "expect": "^24.9.0",
+        "mocha": "^6.2.2",
         "tfilemonk": "0.0.5"
     }
 }

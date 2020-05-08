@@ -10,6 +10,9 @@ module.exports = function mondoDao(config) {
         defaultPageSize: config.pageSize || 20,
         db: config.db || monk(config.uri),
         prepareDao: function(dao) {
+            if(mongoDao.registry[dao.collectionName]) {
+                throw Error(dao.collectionName+'already registered');
+            }
             mongoDao.registry[dao.collectionName] = dao;
             return prepareDAO(dao, mongoDao);
         }
@@ -208,13 +211,16 @@ function addFetchSchemaMethods(dao) {
     const db = dao.db;
     Object.keys(dao.relations || {}).forEach(relationName => {
         const relationConfig = normalizeRelationConfig(dao.relations[relationName], relationName, dao.collectionName);
-        const addName = relationName[0].toUpperCase() + relationName.slice(1).toLowerCase();
-        const collectionAddName = relationConfig.foreignKey[0].toUpperCase() + relationConfig.foreignKey.slice(1).toLowerCase();
+        const addName = capitalize(relationName);
+        const collectionAddName = capitalize(relationConfig.foreignKey);
         dao['fetch' + addName] = function(entities) {
             entities = toArray(entities);
             const values = flatten(entities.map(value => value[relationConfig.localKey]));
             let findPromise;
             if (db.registry[relationConfig.collection]) {
+                if(typeof db.registry[relationConfig.collection]['getBy' + collectionAddName] !== 'function'){
+                  throw new Error('dao '+relationConfig.collection+' does not have the function getBy' + collectionAddName);
+                }
                 findPromise = db.registry[relationConfig.collection]['getBy' + collectionAddName](values.map(v=>v.toString()));
             } else {
                 findPromise = db.db.get(relationConfig.collection).find({ $in: values });
@@ -250,7 +256,7 @@ function normalizeRelationConfig(config, relationName, localCollectionName) {
 
 function addSchemaMethods(dao, schema, prefix = '') {
     Object.keys(schema).forEach(propName => {
-        const addName = prefix + propName[0].toUpperCase() + propName.slice(1).toLowerCase();
+        const addName = prefix + capitalize(propName);
         if (typeof(schema[propName]) === 'object') {
             if (Array.isArray(schema[propName])) {
                 if (typeof(schema[propName][0]) == 'object') {
@@ -299,9 +305,21 @@ function groupBy(collection, propName) {
     return result;
 }
 
+/**
+ * 
+ * @param {any|any[]} item 
+ */
 function toArray(item) {
     if (Array.isArray(item)) return item;
     return [item]
+}
+
+/**
+ * 
+ * @param {string} s 
+ */
+function capitalize(s){
+    return s[0].toUpperCase() + s.slice(1)
 }
 
 //todo: find solution fo validate updates with $set, $inc 
