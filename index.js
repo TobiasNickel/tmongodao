@@ -279,9 +279,9 @@ function addSchemaPropertyMethods(dao, addName, propName) {
             [propName]: { $in: toArray(value) }
         });
         if (page) {
-            pagesize = pagesize || dao.db.defaultPageSize;
-            finder = finder.skip(pagesize * page);
-            finder = finder.limit(pagesize);
+            pageSize = pageSize || dao.db.defaultPageSize;
+            finder = finder.skip(pageSize * page);
+            finder = finder.limit(pageSize);
         }
         return finder.then(items=>Promise.all(items.map(dao.map)));
     }, { resultProp: propName });
